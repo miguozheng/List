@@ -4,6 +4,8 @@
 #include <glib.h>
 #include <stdarg.h>
 #include <pthread.h>
+#include <semaphore.h>
+
 #include "list.h"
 
 /***************************************************************************************************************************************************
@@ -23,7 +25,6 @@ void timer_test(void);
 *varlue declear
 *
 ****************************************************************************************************************************************************/
-
 
 static gint values_test = 0;  
 static gboolean boolen_value = FALSE;  
@@ -356,9 +357,57 @@ void fork_test(void)
 *sem_test
 *
 ****************************************************************************************************************************************************/
+pthread_t sem_id1,sem_id2;
+
+sem_t sem_play;
+
+void sem_thread_1_test(void *argv)
+{
+	char getchart[50];
+	gint i = 0;
+	struct timespec ts;
+	
+	while(1){
+		printf("Hello,sem_thread_1_test, I posted sem signal %d times!\n",i++);	
+		sem_post(&sem_play);
+		sleep(2);
+		
+	}
+}
+void sem_thread_2_test(void *argv)
+{
+	gint i = 0;
+	
+	while(1){
+		sem_wait(&sem_play);
+		printf("Hi, sem_thread_0_test,I got the sem signal %d times!\n",i++);	
+		sleep(1);
+	}
+}
+
 void sem_test(void)
 {
+	int res;
+	
+	res = sem_init(&sem_play, 0, 0);
+	
+	if (0 != res)
+	{
+	 	printf("Semaphore initialization failed");
+	}
+	
 
+	res = pthread_create(&sem_id1,NULL,(void*)sem_thread_1_test,NULL);
+    if(res)
+    {
+        printf("create sem-pthread error!\n");
+    }
+    res = pthread_create(&sem_id2,NULL,(void*)sem_thread_2_test,NULL);
+    if(res)
+    {
+        printf("create sem-pthread error!\n");
+    }
+	
 }
 
 /***************************************************************************************************************************************************
@@ -375,13 +424,13 @@ int main(int argc,char *argv[])
 	char *ptempmigo = NULL;
 	char getchart[50];
 	union_test uniondata;
-	
+
     list = g_list_append(list,argv[1]);
     printf("The first item is %s\n",list->data);
 	SoundListQueueInit();
 	pnode = listNodeMake((void *)argv[1]);
 	printf("pnode:%p\n",pnode);
-	printf("%s\n",(char *)pnode->Data);
+	//printf("%s\n",(char *)pnode->Data);
 	listNodeInsertQueue(&SoundDlist,pnode);
 	pnode = listGetTial(&SoundDlist);
 	printf("head:%p\n",pnode);
@@ -397,23 +446,32 @@ int main(int argc,char *argv[])
 	uniondata.uint32data = 0x44332211;
 	printf("uint32data = %8x;  uint16data = %8x;  uint8data = %8x;  \n",uniondata.uint32data,uniondata.uint16data,uniondata.uint8data);
 	printf("buf[0] = %2x;  buf[1] = %2x;  buf[2] = %2x; buf[3] = %2x; \n",uniondata.buf[0],uniondata.buf[1],uniondata.buf[2],uniondata.buf[3]);
-
+	if(0x44 == uniondata.buf[0]){
+		printf("\n\nBig-Endian mode.\n\n");
+	}else{
+		printf("\n\nLittle-Endian mode.\n\n");
+	}
 	printf("put some words...\n");
 	gets(getchart);
 	printf("th get char : %s\n",getchart);
 
 	
 	printf("brfore..values_test = %d; boolen_value = %d; str_test : %s\n",values_test,boolen_value,str_test);
+	//启动入参给变量赋值
 	test_g_opnion_entry(argc,argv);
 	printf("values_test = %d; boolen_value = %d; str_test : %s\n",values_test,boolen_value,str_test);
-
+	//配置文件给变量赋值
 	conf_file_test();
 
-	fork_test();
+	//fork_test();
 
-	thread_test();
+	//thread_test();
 	
-	timer_test();
+	//sem test
+	sem_test();	
+	
+	//timer_test();
+	while(1);
 
 	return 0;
 }
