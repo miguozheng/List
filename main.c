@@ -5,6 +5,7 @@
 #include <stdarg.h>
 #include <pthread.h>
 #include <semaphore.h>
+#include <sys/epoll.h>
 
 #include "list.h"
 
@@ -483,7 +484,87 @@ void serialport_test(char *port_name)
 		
 	}
 }
+/***************************************************************************************************************************************************
+*
+*epoll for serialport_test
+*
+****************************************************************************************************************************************************/
+pthread_t epoll_thread_id1;
+int epoll_serial_port_fd = -1;
+int epoll_id;
+struct epoll_event epoll_event;
+struct epoll_event epoll_events[10];
 
+void epoll_thread_test(void *argv)
+{
+	char getchart[1024];
+	char sendchar[2] = {0x55,0xaa};
+	gint i = 0;
+	struct timespec ts;
+	memset(getchart,0,1024);
+	
+	printf("begin recive!\n");
+	while(1){
+		i = epoll_wait(epoll_id, epoll_events, 1, 50);
+		//printf("epoll event = %i.\n",i);
+		if(i > 0){
+			printf("epoll event = %i.\n",i);
+			i = read_port(epoll_serial_port_fd,getchart,1024);
+			if(i){
+				printf("Ding,I got the serialport %d data:%s  \n",i,getchart);
+				memset(getchart,0,1024);
+				//write_port(epoll_serial_port_fd,"self send test",15);
+			}		
+
+		}
+	}
+}
+
+void epoll_for_serialport_test(char *port_name)
+{
+
+	int fd = -1,res;
+	
+	//init serial
+	fd = open_port(port_name);
+	if(-1 == fd){
+		printf("Open serialport %s failed\n",port_name);
+	}else{
+		epoll_serial_port_fd = fd;
+		printf("serial_port_fd =  %d.\n",epoll_serial_port_fd);
+		if(set_port(fd,115200,8,'N',1)){
+			printf("Set serialport %s failed\n",port_name);
+		}else{
+			write_port(epoll_serial_port_fd,"serial test!",13);
+			
+		}
+		
+	}
+	//init epoll
+	epoll_id = epoll_create1(0);
+	if(epoll_id < 0){
+		printf("creat epoll fialed !\n");
+	}
+	else{
+		printf("EPOLL ID id %d .\n",epoll_id);
+		
+		epoll_event.events = EPOLLET | EPOLLIN;
+		epoll_event.data.fd = epoll_serial_port_fd;
+	
+	
+		if(epoll_ctl(epoll_id, EPOLL_CTL_ADD, epoll_serial_port_fd, &epoll_event) < 0){
+			printf("set EPOLL fialed.\n");
+		}
+	}
+	//creat thread
+	res = pthread_create(&epoll_thread_id1,NULL,(void*)epoll_thread_test,NULL);
+	if(res)
+	{
+		printf("create epoll-pthread error!\n");
+	}
+
+}
+//
 /***************************************************************************************************************************************************
 *
 *main
@@ -511,7 +592,7 @@ int main(int argc,char *argv[])
 	printf("Welcome:%s\n",(char *)pnode->Data);
 	g_printf("Hello world!\n");
 	
-	glib_test1();
+	//glib_test1();
 	//va_func_test(argv[0],argv[1],argv[2],argv[3],argv[4]);
 	
 	ptest(&ptempmigo);	
@@ -545,7 +626,11 @@ int main(int argc,char *argv[])
 	//sem_test();	
 
 	//serialport test
-	serialport_test(argv[1]);
+	//serialport_test(argv[1]);
+	
+	//epoll for serial test
+	epoll_for_serialport_test(argv[1]);
+	
 	//timer_test();
 	while(1);
 
